@@ -1,0 +1,391 @@
+generator client {
+    provider = "prisma-client-js"
+    binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+    output = "/home/ubuntu/ai_governance_studio/nextjs_space/node_modules/.prisma/client"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+enum AIModelType {
+  LARGE_LANGUAGE_MODEL
+  COMPUTER_VISION
+  PREDICTIVE_ANALYTICS
+  NATURAL_LANGUAGE_PROCESSING
+  RECOMMENDER_SYSTEM
+  ROBOTICS_AUTONOMOUS
+  OTHER
+}
+
+enum DeploymentStatus {
+  DEVELOPMENT
+  TESTING
+  PRODUCTION
+  RETIRED
+}
+
+enum RiskClassification {
+  NOT_YET_ASSESSED
+  MINIMAL_RISK
+  LIMITED_RISK
+  HIGH_RISK
+  PROHIBITED
+}
+
+enum ProcessingVolume {
+  LESS_THAN_1000
+  FROM_1000_TO_10000
+  FROM_10000_TO_100000
+  OVER_100000
+}
+
+enum HighRiskCategory {
+  BIOMETRIC_IDENTIFICATION
+  CRITICAL_INFRASTRUCTURE
+  EDUCATION_EMPLOYMENT
+  ESSENTIAL_SERVICES
+  LAW_ENFORCEMENT
+  MIGRATION_ASYLUM
+  JUSTICE_DEMOCRACY
+  OTHER
+}
+
+enum ImplementationLevel {
+  NOT_ADDRESSED
+  PARTIALLY_ADDRESSED
+  FULLY_ADDRESSED
+}
+
+enum NISTMaturityLevel {
+  INITIAL
+  DEVELOPING
+  DEFINED
+  MANAGED
+  OPTIMISING
+}
+
+enum ComplianceConfidenceLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model AISystem {
+  system_id           String              @id @default(cuid())
+  system_name         String              @unique @db.VarChar(200)
+  system_purpose      String              @db.VarChar(1000)
+  business_owner      String
+  technical_owner     String
+  ai_model_type       AIModelType
+  deployment_status   DeploymentStatus
+  deployment_date     DateTime?
+  data_sources        String[]
+  vendor_provider     String?
+  integration_points  String?
+  processing_volume   ProcessingVolume
+  risk_classification RiskClassification  @default(NOT_YET_ASSESSED)
+  date_added          DateTime            @default(now())
+  last_modified       DateTime            @updatedAt
+  modified_by         String
+  
+  euAIActAssessments       EUAIActAssessment[]
+  ukAIRegulationAssessments UKAIRegulationAssessment[]
+  nistAIRMFAssessments     NISTAIRMFAssessment[]
+  crossFrameworkAnalyses   CrossFrameworkAnalysis[]
+  biasTests                BiasTest[]
+  modelCards               ModelCard[]
+
+  @@map("ai_systems")
+}
+
+model EUAIActAssessment {
+  assessment_id                String               @id @default(cuid())
+  system_id                    String
+  risk_tier                    RiskClassification
+  prohibited_trigger           String?              @db.Text
+  high_risk_categories         HighRiskCategory[]
+  compliance_requirements      String[]
+  conformity_assessment_needed Boolean              @default(false)
+  ce_marking_required          Boolean              @default(false)
+  human_oversight_required     Boolean              @default(false)
+  transparency_obligations     String[]
+  assessment_date              DateTime             @default(now())
+  assessed_by                  String
+  notes                        String?              @db.Text
+  
+  // Questionnaire responses (stored for audit trail)
+  prohibited_responses         Json?
+  high_risk_responses          Json?
+  limited_risk_responses       Json?
+  
+  aiSystem                     AISystem             @relation(fields: [system_id], references: [system_id], onDelete: Cascade)
+  
+  @@map("eu_ai_act_assessments")
+  @@index([system_id])
+}
+
+model UKAIRegulationAssessment {
+  assessment_id                   String               @id @default(cuid())
+  system_id                       String
+  safety_security_robustness      ImplementationLevel  @default(NOT_ADDRESSED)
+  transparency_explainability     ImplementationLevel  @default(NOT_ADDRESSED)
+  fairness                        ImplementationLevel  @default(NOT_ADDRESSED)
+  accountability_governance       ImplementationLevel  @default(NOT_ADDRESSED)
+  contestability_redress          ImplementationLevel  @default(NOT_ADDRESSED)
+  sector_specific_requirements    String[]
+  overall_compliance_score        Float                @default(0)
+  gaps_identified                 String[]
+  assessment_date                 DateTime             @default(now())
+  assessed_by                     String
+  notes                           String?              @db.Text
+  
+  // Questionnaire responses (stored for audit trail)
+  questionnaire_responses         Json?
+  
+  aiSystem                        AISystem             @relation(fields: [system_id], references: [system_id], onDelete: Cascade)
+  
+  @@map("uk_ai_regulation_assessments")
+  @@index([system_id])
+}
+
+model NISTAIRMFAssessment {
+  assessment_id                   String               @id @default(cuid())
+  system_id                       String
+  govern_score                    Float                @default(0)
+  map_score                       Float                @default(0)
+  measure_score                   Float                @default(0)
+  manage_score                    Float                @default(0)
+  trustworthy_characteristics     Json?
+  overall_maturity_level          NISTMaturityLevel    @default(INITIAL)
+  recommendations                 String[]
+  assessment_date                 DateTime             @default(now())
+  assessed_by                     String
+  notes                           String?              @db.Text
+  
+  // Questionnaire responses (stored for audit trail)
+  questionnaire_responses         Json?
+  
+  aiSystem                        AISystem             @relation(fields: [system_id], references: [system_id], onDelete: Cascade)
+  
+  @@map("nist_ai_rmf_assessments")
+  @@index([system_id])
+}
+
+model CrossFrameworkAnalysis {
+  analysis_id                     String                     @id @default(cuid())
+  system_id                       String
+  frameworks_assessed             String[]
+  coverage_gaps                   String[]
+  overlapping_requirements        String[]
+  priority_actions                String[]
+  compliance_confidence_level     ComplianceConfidenceLevel  @default(MEDIUM)
+  next_review_date                DateTime?
+  analysis_date                   DateTime                   @default(now())
+  assessed_by                     String
+  notes                           String?                    @db.Text
+  
+  aiSystem                        AISystem                   @relation(fields: [system_id], references: [system_id], onDelete: Cascade)
+  
+  @@map("cross_framework_analyses")
+  @@index([system_id])
+}
+
+enum BiasTestType {
+  DEMOGRAPHIC_PARITY
+  EQUAL_OPPORTUNITY
+  EQUALISED_ODDS
+  PREDICTIVE_PARITY
+  CALIBRATION
+  INDIVIDUAL_FAIRNESS
+}
+
+enum BiasTestStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  REMEDIATION_NEEDED
+  REMEDIATION_COMPLETE
+}
+
+enum BiasSeverityLevel {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+  NO_ISSUES
+}
+
+enum RemediationPriority {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum RemediationStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  BLOCKED
+}
+
+enum StatisticalSignificance {
+  SIGNIFICANT
+  NOT_SIGNIFICANT
+  INCONCLUSIVE
+}
+
+model BiasTest {
+  test_id                     String              @id @default(cuid())
+  system_id                   String
+  test_name                   String
+  test_type                   BiasTestType
+  protected_attributes_tested String[]
+  dataset_description         String              @db.Text
+  sample_size                 Int
+  test_date                   DateTime            @default(now())
+  tested_by                   String
+  test_methodology            String              @db.Text
+  results                     Json?
+  overall_fairness_score      Float               @default(0)
+  issues_detected             Boolean             @default(false)
+  severity_level              BiasSeverityLevel   @default(NO_ISSUES)
+  status                      BiasTestStatus      @default(PLANNED)
+  notes                       String?             @db.Text
+  
+  aiSystem                    AISystem            @relation(fields: [system_id], references: [system_id], onDelete: Cascade)
+  testResults                 BiasTestResult[]
+  remediationActions          RemediationAction[]
+  
+  @@map("bias_tests")
+  @@index([system_id])
+  @@index([status])
+}
+
+model BiasTestResult {
+  result_id                String                    @id @default(cuid())
+  test_id                  String
+  protected_attribute      String
+  reference_group          String
+  comparison_group         String
+  metric_name              String
+  reference_group_value    Float
+  comparison_group_value   Float
+  disparity_ratio          Float
+  passes_threshold         Boolean
+  statistical_significance StatisticalSignificance  @default(INCONCLUSIVE)
+  
+  biasTest                 BiasTest                 @relation(fields: [test_id], references: [test_id], onDelete: Cascade)
+  
+  @@map("bias_test_results")
+  @@index([test_id])
+}
+
+model RemediationAction {
+  action_id           String              @id @default(cuid())
+  test_id             String
+  issue_description   String              @db.Text
+  recommended_action  String              @db.Text
+  assigned_to         String
+  priority            RemediationPriority
+  status              RemediationStatus   @default(NOT_STARTED)
+  due_date            DateTime?
+  completion_date     DateTime?
+  notes               String?             @db.Text
+  follow_up_test_required Boolean         @default(false)
+  created_at          DateTime            @default(now())
+  
+  biasTest            BiasTest            @relation(fields: [test_id], references: [test_id], onDelete: Cascade)
+  
+  @@map("remediation_actions")
+  @@index([test_id])
+  @@index([status])
+  @@index([priority])
+}
+
+enum ModelCardStatus {
+  DRAFT
+  UNDER_REVIEW
+  APPROVED
+  PUBLISHED
+  ARCHIVED
+}
+
+enum UpdateFrequency {
+  CONTINUOUS
+  MONTHLY
+  QUARTERLY
+  ANNUALLY
+  AS_NEEDED
+}
+
+model ModelCard {
+  card_id                      String            @id @default(cuid())
+  system_id                    String
+  card_version                 String            @default("1.0")
+  status                       ModelCardStatus   @default(DRAFT)
+  
+  // Section 1: Model Details
+  model_details_summary        String?           @db.Text
+  model_architecture           String?
+  licence                      String?
+  citation                     String?           @db.Text
+  
+  // Section 2: Intended Use & Limitations
+  intended_use                 String?           @db.Text
+  intended_users               String[]
+  intended_deployment_contexts String?           @db.Text
+  out_of_scope_uses            String[]
+  limitations_known            String[]
+  trade_offs                   String?           @db.Text
+  
+  // Section 3: Training Data
+  training_data_description    String?           @db.Text
+  training_data_size           Int?
+  training_data_source         String?
+  data_collection_methodology  String?           @db.Text
+  preprocessing_steps          String[]
+  data_labelling_approach      String?           @db.Text
+  sensitive_data_handling      String?           @db.Text
+  
+  // Section 4: Performance Metrics
+  evaluation_metrics           Json?
+  performance_results          Json?
+  benchmark_comparisons        String?           @db.Text
+  
+  // Section 5: Ethical Considerations & Fairness
+  fairness_assessment_summary  String?           @db.Text
+  potential_risks_harms        String?           @db.Text
+  human_oversight_requirements String?           @db.Text
+  contestability_mechanisms    String?           @db.Text
+  ethical_considerations       String?           @db.Text
+  
+  // Section 6: Deployment & Monitoring
+  deployment_recommendations   String?           @db.Text
+  monitoring_requirements      String?           @db.Text
+  monitoring_plan              String?           @db.Text
+  update_frequency             UpdateFrequency   @default(AS_NEEDED)
+  update_triggers              String?           @db.Text
+  decommissioning_criteria     String?           @db.Text
+  
+  // Section 7: Regulatory Compliance Context
+  regulatory_compliance_summary String?          @db.Text
+  
+  // Section 8: Review & Approval
+  last_updated                 DateTime          @default(now())
+  updated_by                   String
+  approved_by                  String?
+  approval_date                DateTime?
+  reviewer_assigned            String?
+  review_comments              String?           @db.Text
+  publication_url              String?
+  
+  aiSystem                     AISystem          @relation(fields: [system_id], references: [system_id], onDelete: Cascade)
+  
+  @@map("model_cards")
+  @@index([system_id])
+  @@index([status])
+  @@index([card_version])
+}
