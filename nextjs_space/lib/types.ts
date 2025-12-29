@@ -27,6 +27,7 @@ export type DateRange = {
   to: Date | undefined
 
   // Module 6: Vendor Risk Assessment & AI System Types
+  }
 
 export type VendorStatus = 'ACTIVE' | 'INACTIVE' | 'PENDING_REVIEW' | 'TERMINATED'
 export type RiskTier = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
