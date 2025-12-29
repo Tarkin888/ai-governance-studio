@@ -388,3 +388,282 @@ model ModelCard {
   @@index([status])
   @@index([card_version])
 }
+
+
+// ============================================================================
+// MODULE 6: THIRD-PARTY AI VENDOR RISK ASSESSMENT
+// ============================================================================
+
+enum VendorRiskTier {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+  NOT_ASSESSED
+}
+
+enum VendorAssessmentStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  REASSESSMENT_REQUIRED
+}
+
+enum VendorComplianceStatus {
+  COMPLIANT
+  NON_COMPLIANT
+  PARTIALLY_COMPLIANT
+  PENDING_VERIFICATION
+  NOT_APPLICABLE
+}
+
+enum DocumentType {
+  CONTRACT
+  SLA
+  DPA
+  PRIVACY_POLICY
+  SECURITY_CERTIFICATE
+  AUDIT_REPORT
+  MODEL_CARD
+  COMPLIANCE_ATTESTATION
+  INSURANCE_CERTIFICATE
+  OTHER
+}
+
+enum DocumentStatus {
+  CURRENT
+  EXPIRING_SOON
+  EXPIRED
+  UNDER_REVIEW
+  PENDING
+}
+
+enum ContractStatus {
+  ACTIVE
+  EXPIRING_SOON
+  EXPIRED
+  TERMINATED
+  PENDING_RENEWAL
+}
+
+enum VendorStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  UNDER_REVIEW
+  TERMINATED
+}
+
+model Vendor {
+  vendor_id                   String                @id @default(cuid())
+  vendor_name                 String                @unique @db.VarChar(200)
+  legal_entity_name           String?               @db.VarChar(300)
+  website                     String?
+  headquarters_location       String?
+  primary_contact_name        String
+  primary_contact_email       String
+  primary_contact_phone       String?
+  vendor_status               VendorStatus          @default(ACTIVE)
+
+  // Business Information
+  services_provided           String[]
+  industries_served           String[]
+  company_size                String?
+  years_in_business           Int?
+
+  // Risk & Compliance
+  overall_risk_tier           VendorRiskTier        @default(NOT_ASSESSED)
+  last_assessment_date        DateTime?
+  next_assessment_due         DateTime?
+
+  // Metadata
+  date_added                  DateTime              @default(now())
+  last_modified               DateTime              @updatedAt
+  added_by                    String
+
+  // Relations
+  assessments                 VendorAssessment[]
+  contracts                   VendorContract[]
+  documents                   VendorDocument[]
+  complianceChecks            VendorComplianceCheck[]
+
+  @@map("vendors")
+  @@index([vendor_status])
+  @@index([overall_risk_tier])
+}
+
+model VendorAssessment {
+  assessment_id               String                  @id @default(cuid())
+  vendor_id                   String
+  assessment_date             DateTime                @default(now())
+  assessed_by                 String
+  status                      VendorAssessmentStatus  @default(IN_PROGRESS)
+
+  // Assessment Sections (0-100 scores)
+  security_score              Float                   @default(0)
+  privacy_score               Float                   @default(0)
+  ai_ethics_score             Float                   @default(0)
+  reliability_score           Float                   @default(0)
+  compliance_score            Float                   @default(0)
+  transparency_score          Float                   @default(0)
+
+  // Overall Assessment
+  overall_score               Float                   @default(0)
+  risk_tier                   VendorRiskTier          @default(NOT_ASSESSED)
+
+  // Detailed Findings
+  strengths                   String[]
+  weaknesses                  String[]
+  red_flags                   String[]
+  recommendations             String[]
+
+  // Decision
+  approval_decision           String?
+  approval_conditions         String[]
+  decision_rationale          String?                 @db.Text
+  approved_by                 String?
+  approval_date               DateTime?
+
+  // Follow-up
+  next_review_date            DateTime?
+  review_frequency_months     Int                     @default(12)
+
+  notes                       String?                 @db.Text
+
+  // Questionnaire responses
+  questionnaire_responses     Json?
+
+  vendor                      Vendor                  @relation(fields: [vendor_id], references: [vendor_id], onDelete: Cascade)
+
+  @@map("vendor_assessments")
+  @@index([vendor_id])
+  @@index([status])
+  @@index([assessment_date])
+}
+
+model VendorContract {
+  contract_id                 String            @id @default(cuid())
+  vendor_id                   String
+  contract_title              String            @db.VarChar(300)
+  contract_number             String?           @unique
+  contract_status             ContractStatus    @default(ACTIVE)
+
+  // Contract Dates
+  start_date                  DateTime
+  end_date                    DateTime
+  renewal_date                DateTime?
+  notice_period_days          Int?
+
+  // Contract Terms
+  contract_value_annual       Float?
+  currency                    String            @default("GBP")
+  payment_terms               String?
+
+  // Key Clauses
+  data_protection_terms       Boolean           @default(false)
+  liability_cap_amount        Float?
+  termination_clauses         String?           @db.Text
+  sla_guarantees              String[]
+
+  // Compliance Requirements
+  gdpr_compliant              Boolean           @default(false)
+  iso27001_required           Boolean           @default(false)
+  soc2_required               Boolean           @default(false)
+  other_certifications        String[]
+
+  // Monitoring
+  performance_kpis            Json?
+  breach_notification_hours   Int?
+
+  contract_owner              String
+  notes                       String?           @db.Text
+
+  created_at                  DateTime          @default(now())
+  last_modified               DateTime          @updatedAt
+
+  vendor                      Vendor            @relation(fields: [vendor_id], references: [vendor_id], onDelete: Cascade)
+
+  @@map("vendor_contracts")
+  @@index([vendor_id])
+  @@index([contract_status])
+  @@index([end_date])
+}
+
+model VendorDocument {
+  document_id                 String            @id @default(cuid())
+  vendor_id                   String
+  document_type               DocumentType
+  document_title              String            @db.VarChar(300)
+  document_status             DocumentStatus    @default(CURRENT)
+
+  // Document Details
+  file_url                    String?
+  file_name                   String?
+  file_size_kb                Int?
+
+  // Dates
+  upload_date                 DateTime          @default(now())
+  issue_date                  DateTime?
+  expiry_date                 DateTime?
+  last_reviewed_date          DateTime?
+  next_review_date            DateTime?
+
+  // Metadata
+  uploaded_by                 String
+  document_version            String            @default("1.0")
+  is_confidential             Boolean           @default(false)
+  requires_approval           Boolean           @default(false)
+  approved_by                 String?
+  approval_date               DateTime?
+
+  notes                       String?           @db.Text
+
+  vendor                      Vendor            @relation(fields: [vendor_id], references: [vendor_id], onDelete: Cascade)
+
+  @@map("vendor_documents")
+  @@index([vendor_id])
+  @@index([document_type])
+  @@index([document_status])
+  @@index([expiry_date])
+}
+
+model VendorComplianceCheck {
+  check_id                    String                  @id @default(cuid())
+  vendor_id                   String
+  framework_name              String
+  check_date                  DateTime                @default(now())
+  checked_by                  String
+
+  compliance_status           VendorComplianceStatus  @default(PENDING_VERIFICATION)
+
+  // Detailed Results
+  requirements_checked        Json?
+  compliant_items_count       Int                     @default(0)
+  non_compliant_items_count   Int                     @default(0)
+  not_applicable_items_count  Int                     @default(0)
+  overall_compliance_percentage Float                 @default(0)
+
+  // Findings
+  critical_findings           String[]
+  major_findings              String[]
+  minor_findings              String[]
+  observations                String[]
+
+  // Actions
+  corrective_actions_required String[]
+  action_plan                 String?                 @db.Text
+  remediation_deadline        DateTime?
+  remediation_completed       Boolean                 @default(false)
+
+  next_check_date             DateTime?
+  notes                       String?                 @db.Text
+
+  vendor                      Vendor                  @relation(fields: [vendor_id], references: [vendor_id], onDelete: Cascade)
+
+  @@map("vendor_compliance_checks")
+  @@index([vendor_id])
+  @@index([framework_name])
+  @@index([compliance_status])
+}
