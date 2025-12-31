@@ -1,62 +1,93 @@
 // ============================================================================
-// PAGE: KNOWLEDGE BASE ARTICLE DETAIL
+// PAGE: KNOWLEDGE BASE ARTICLES LIST
 // ============================================================================
 
-import { notFound } from 'next/link';
+import { Suspense } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, ExternalLink, Calendar, Eye } from 'lucide-react';
+import { BookOpen, Search } from 'lucide-react';
 import { prisma } from '@/lib/prisma';
-import { IncidentTypeBadge } from '@/app/_components/incidents/badges';
-import { KBFeedbackButtons } from '@/components/kb-feedback-buttons';
-import { formatRelativeTime } from '@/lib/module-7-utils';
+import { KBArticleCard, KBArticleCardSkeleton } from '@/components/incidents/kb-article-card';
+import { IncidentType } from '@prisma/client';
 
 // ============================================================================
-// FETCH ARTICLE
+// FETCH ARTICLES
 // ============================================================================
 
-async function getArticle(id: string) {
-  const article = await prisma.knowledgeBaseArticle.findUnique({
-    where: { id },
-    include: {
-      incident: {
-        select: {
-          id: true,
-          incidentNumber: true,
-          title: true
-        }
-      }
-    }
-  });
+async function getArticles(searchQuery?: string, categoryFilter?: string) {
+  const where: any = {
+    status: 'PUBLISHED'
+  };
 
-  if (!article || article.status !== 'PUBLISHED') {
-    notFound();
+  // Category filter
+  if (categoryFilter && categoryFilter !== 'ALL') {
+    where.category = categoryFilter as IncidentType;
   }
 
-  return article;
+  // Search filter
+  if (searchQuery) {
+    where.OR = [
+      { title: { contains: searchQuery, mode: 'insensitive' } },
+      { summary: { contains: searchQuery, mode: 'insensitive' } },
+      { problemStatement: { contains: searchQuery, mode: 'insensitive' } },
+      { solution: { contains: searchQuery, mode: 'insensitive' } }
+    ];
+  }
+
+  const articles = await prisma.knowledgeBaseArticle.findMany({
+    where,
+    select: {
+      id: true,
+      title: true,
+      summary: true,
+      category: true,
+      publishedAt: true,
+      viewCount: true,
+      incidentId: true
+    },
+    orderBy: [
+      { publishedAt: 'desc' }
+    ]
+  });
+
+  return articles;
 }
 
 // ============================================================================
-// INCREMENT VIEW COUNT
+// GET STATISTICS
 // ============================================================================
 
-async function incrementViewCount(id: string) {
-  await prisma.knowledgeBaseArticle.update({
-    where: { id },
-    data: {
-      viewCount: {
-        increment: 1
-      }
-    }
+async function getStatistics() {
+  const [total, byCategory] = await Promise.all([
+    prisma.knowledgeBaseArticle.count({
+      where: { status: 'PUBLISHED' }
+    }),
+    prisma.knowledgeBaseArticle.groupBy({
+      by: ['category'],
+      where: { status: 'PUBLISHED' },
+      _count: true
+    })
+  ]);
+
+  const totalViews = await prisma.knowledgeBaseArticle.aggregate({
+    where: { status: 'PUBLISHED' },
+    _sum: { viewCount: true }
   });
+
+  return {
+    total,
+    totalViews: totalViews._sum.viewCount || 0,
+    byCategory
+  };
 }
 
 // ============================================================================
 // PAGE PROPS
 // ============================================================================
 
-interface ArticleDetailPageProps {
-  params: {
-    id: string;
+interface KnowledgeBasePageProps {
+  searchParams: {
+    q?: string;
+    category?: string;
   };
 }
 
@@ -64,161 +95,201 @@ interface ArticleDetailPageProps {
 // MAIN PAGE COMPONENT
 // ============================================================================
 
-export default async function ArticleDetailPage({
-  params
-}: ArticleDetailPageProps) {
-  const article = await getArticle(params.id);
+export default async function KnowledgeBasePage({ searchParams }: KnowledgeBasePageProps) {
+  const searchQuery = searchParams.q || '';
+  const categoryFilter = searchParams.category || 'ALL';
 
-  // Increment view count (fire and forget)
-  incrementViewCount(params.id).catch(console.error);
+  const [articles, stats] = await Promise.all([
+    getArticles(searchQuery, categoryFilter),
+    getStatistics()
+  ]);
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          {/* Breadcrumb */}
-          <div className="flex items-center mb-4">
-            <Link
-              href="/incidents/knowledge-base"
-              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </Link>
-            <nav className="ml-2 flex items-center text-sm">
-              <Link
-                href="/incidents/knowledge-base"
-                className="text-gray-600 hover:text-gray-900"
-              >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
                 Knowledge Base
-              </Link>
-              <span className="mx-2 text-gray-400">/</span>
-              <span className="text-gray-900">Article</span>
-            </nav>
-          </div>
-
-          {/* Title & Metadata */}
-          <div className="mb-4">
-            <h1 className="text-3xl font-bold text-gray-900 mb-3">
-              {article.title}
-            </h1>
-            <div className="flex items-center gap-4 text-sm text-gray-600">
-              <IncidentTypeBadge type={article.category} />
-              <span className="flex items-center">
-                <Calendar className="h-4 w-4 mr-1.5" />
-                {formatRelativeTime(new Date(article.publishedAt!))}
-              </span>
-              <span className="flex items-center">
-                <Eye className="h-4 w-4 mr-1.5" />
-                {article.viewCount + 1} views
-              </span>
+              </h1>
+              <p className="mt-1 text-sm text-gray-600">
+                Learn from past incidents and documented solutions
+              </p>
             </div>
-          </div>
-
-          {/* Summary */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-sm text-blue-900 font-medium">
-              {article.summary}
-            </p>
+            <Link
+              href="/incidents"
+              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+            >
+              Back to Incidents
+            </Link>
           </div>
         </div>
       </div>
 
       {/* Content */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="space-y-6">
-          {/* Problem Statement */}
-          <section className="bg-white border border-gray-200 rounded-lg p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-              <span className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-red-100 text-red-600 text-sm font-bold mr-3">
-                1
-              </span>
-              Problem Statement
-            </h2>
-            <div className="pl-11">
-              <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
-                {article.problemStatement}
-              </p>
-            </div>
-          </section>
-
-          {/* Solution */}
-          <section className="bg-white border border-gray-200 rounded-lg p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-              <span className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-green-100 text-green-600 text-sm font-bold mr-3">
-                2
-              </span>
-              Solution
-            </h2>
-            <div className="pl-11">
-              <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
-                {article.solution}
-              </p>
-            </div>
-          </section>
-
-          {/* Prevention Guidance */}
-          <section className="bg-white border border-gray-200 rounded-lg p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-              <span className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-100 text-blue-600 text-sm font-bold mr-3">
-                3
-              </span>
-              Prevention Guidance
-            </h2>
-            <div className="pl-11">
-              <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
-                {article.preventionGuidance}
-              </p>
-            </div>
-          </section>
-
-          {/* Source Incident */}
-          {article.incident && (
-            <section className="bg-gray-50 border border-gray-200 rounded-lg p-6">
-              <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3">
-                Source Incident
-              </h3>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-900">
-                    {article.incident.incidentNumber}
-                  </p>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {article.incident.title}
-                  </p>
-                </div>
-                <Link
-                  href={`/incidents/${article.incident.id}`}
-                  className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-                >
-                  View Incident
-                  <ExternalLink className="ml-2 h-4 w-4" />
-                </Link>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Statistics */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <div className="bg-white border border-gray-200 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-gray-600 uppercase tracking-wider">
+                  Published Articles
+                </p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">
+                  {stats.total}
+                </p>
               </div>
-            </section>
-          )}
+              <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                <BookOpen className="h-6 w-6 text-blue-600" />
+              </div>
+            </div>
+          </div>
 
-          {/* Feedback */}
-          <section className="bg-white border border-gray-200 rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Was this article helpful?
-            </h3>
-            <KBFeedbackButtons articleId={article.id} />
-          </section>
+          <div className="bg-white border border-gray-200 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-gray-600 uppercase tracking-wider">
+                  Total Views
+                </p>
+                <p className="text-2xl font-bold text-green-600 mt-1">
+                  {stats.totalViews.toLocaleString()}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
+                <Search className="h-6 w-6 text-green-600" />
+              </div>
+            </div>
+          </div>
 
-          {/* Related Articles Placeholder */}
-          <section className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-sm text-blue-800">
-              <strong>Looking for more information?</strong> Browse the{' '}
-              <Link
-                href={`/incidents/knowledge-base?category=${article.category}`}
-                className="underline hover:text-blue-900"
-              >
-                {article.category}
-              </Link>{' '}
-              category for related articles.
+          <div className="bg-white border border-gray-200 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-gray-600 uppercase tracking-wider">
+                  Categories
+                </p>
+                <p className="text-2xl font-bold text-orange-600 mt-1">
+                  {stats.byCategory.length}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                <BookOpen className="h-6 w-6 text-orange-600" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Search & Filter Bar */}
+        <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
+          <form method="GET" className="space-y-4">
+            {/* Search Input */}
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className="h-5 w-5 text-gray-400" />
+              </div>
+              <input
+                type="text"
+                name="q"
+                defaultValue={searchQuery}
+                placeholder="Search articles by keyword..."
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            {/* Category Filter */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-medium text-gray-700">
+                Category:
+              </span>
+              <CategoryButton
+                label="All"
+                value="ALL"
+                currentCategory={categoryFilter}
+              />
+              <CategoryButton
+                label="Bias"
+                value="BIAS_DISCRIMINATION"
+                currentCategory={categoryFilter}
+              />
+              <CategoryButton
+                label="Data Breach"
+                value="DATA_BREACH"
+                currentCategory={categoryFilter}
+              />
+              <CategoryButton
+                label="Model Drift"
+                value="MODEL_DRIFT"
+                currentCategory={categoryFilter}
+              />
+              <CategoryButton
+                label="System Failure"
+                value="SYSTEM_FAILURE"
+                currentCategory={categoryFilter}
+              />
+              <CategoryButton
+                label="Security"
+                value="SECURITY_VULNERABILITY"
+                currentCategory={categoryFilter}
+              />
+            </div>
+          </form>
+        </div>
+
+        {/* Results Count */}
+        {(searchQuery || categoryFilter !== 'ALL') && (
+          <div className="mb-4">
+            <p className="text-sm text-gray-600">
+              Found {articles.length}{' '}
+              {articles.length === 1 ? 'article' : 'articles'}
+              {searchQuery && ` matching "${searchQuery}"`}
+              {categoryFilter !== 'ALL' && ` in ${categoryFilter}`}
             </p>
-          </section>
+          </div>
+        )}
+
+        {/* Articles Grid */}
+        {articles.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {articles.map((article) => (
+              <KBArticleCard
+                key={article.id}
+                article={article}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <div className="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+              <BookOpen className="h-12 w-12 text-gray-400" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              No Articles Found
+            </h3>
+            <p className="text-gray-600 mb-4">
+              {searchQuery
+                ? `No articles match your search for "${searchQuery}".`
+                : categoryFilter !== 'ALL'
+                ? `No articles available in this category yet.`
+                : 'No published articles available yet.'}
+            </p>
+            <p className="text-sm text-gray-500">
+              Knowledge base articles are automatically created when incidents
+              are closed with complete root cause analysis.
+            </p>
+          </div>
+        )}
+
+        {/* Info Note */}
+        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="text-sm text-blue-800">
+            <strong>How it works:</strong> When an incident is closed with
+            completed root cause analysis, lessons learned, and preventive
+            actions, a draft Knowledge Base article is automatically created.
+            Administrators can review and publish these articles to share
+            learnings across the organisation.
+          </p>
         </div>
       </div>
     </div>
@@ -226,18 +297,42 @@ export default async function ArticleDetailPage({
 }
 
 // ============================================================================
+// CATEGORY BUTTON COMPONENT
+// ============================================================================
+
+function CategoryButton({
+  label,
+  value,
+  currentCategory
+}: {
+  label: string;
+  value: string;
+  currentCategory: string;
+}) {
+  const isActive = currentCategory === value;
+
+  return (
+    <Link
+      href={`/incidents/knowledge-base?category=${value}`}
+      className={`
+        inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium transition-colors
+        ${
+          isActive
+            ? 'bg-blue-600 text-white'
+            : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+        }
+      `}
+    >
+      {label}
+    </Link>
+  );
+}
+
+// ============================================================================
 // METADATA
 // ============================================================================
 
-export async function generateMetadata({
-  params
-}: {
-  params: { id: string };
-}) {
-  const article = await getArticle(params.id);
-
-  return {
-    title: `${article.title} | Knowledge Base | AI Governance Studio`,
-    description: article.summary
-  };
-}
+export const metadata = {
+  title: 'Knowledge Base | AI Governance Studio',
+  description: 'Browse incident learnings and documented solutions'
+};
