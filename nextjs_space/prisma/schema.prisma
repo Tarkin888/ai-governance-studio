@@ -97,6 +97,8 @@ model AISystem {
   crossFrameworkAnalyses   CrossFrameworkAnalysis[]
   biasTests                BiasTest[]
   modelCards               ModelCard[]
+  vendor                   VendorProfile? @relation("VendorAISystems")
+  vendorId                 String?
 
   @@map("ai_systems")
 }
@@ -389,6 +391,262 @@ model ModelCard {
   @@index([system_id])
   @@index([status])
   @@index([card_version])
+}
+
+// ============================================================================
+// MODULE 6: VENDOR RISK ASSESSMENT (Extended Models)
+// ============================================================================
+
+model VendorProfile {
+  id                    String   @id @default(cuid())
+  vendorName            String
+  website               String?
+  contactEmail          String
+  contactPhone          String?
+  industry              String
+  headquarters          String
+  employeeCount         String?  // "1-50", "51-200", "201-1000", "1000+"
+  yearFounded           Int?
+  description           String?  @db.Text
+  
+  // Vendor Classification
+  vendorType            String   // "AI Provider", "Data Provider", "Infrastructure", "Consultancy"
+  productsServices      String[] // Array of product/service offerings
+  aiCapabilities        String[] // Types of AI systems they provide
+  
+  // Compliance & Certifications
+  certifications        String[] // "ISO 27001", "ISO 42001", "SOC 2", etc.
+  gdprCompliant         Boolean  @default(false)
+  iso42001Certified     Boolean  @default(false)
+  dataProcessingAgreement Boolean @default(false)
+  
+  // Risk Assessment
+  overallRiskScore      Float?   // 0-100 calculated score
+  riskTier              String?  // "Low", "Medium", "High", "Critical"
+  lastAssessmentDate    DateTime?
+  nextReviewDate        DateTime?
+  
+  // Status
+  approvalStatus        String   @default("Pending") // "Pending", "Approved", "Conditional", "Rejected"
+  onboardingStatus      String   @default("New") // "New", "In Progress", "Active", "Suspended", "Terminated"
+  
+  // Metadata
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  createdBy             String?
+  
+  // Relations
+  assessments           VendorRiskAssessment[]
+  contracts             VendorContractProfile[]
+  reviews               VendorPerformanceReview[]
+  incidents             VendorIncident[]
+  aiSystems             AISystem[] @relation("VendorAISystems")
+  
+  @@map("vendor_profiles")
+  @@index([vendorName])
+  @@index([riskTier])
+  @@index([approvalStatus])
+}
+
+model VendorRiskAssessment {
+  id                    String   @id @default(cuid())
+  vendorId              String
+  vendor                VendorProfile @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  
+  assessmentDate        DateTime @default(now())
+  assessmentType        String   // "Initial", "Annual", "Triggered", "Ad-hoc"
+  assessor              String   // Name/ID of person conducting assessment
+  
+  // Security Assessment (weighted 30%)
+  dataProtection        Int      // 1-5 score
+  accessControls        Int
+  incidentResponse      Int
+  securityTesting       Int
+  encryptionPractices   Int
+  securityScore         Float?   // Calculated weighted average
+  
+  // Compliance Assessment (weighted 25%)
+  regulatoryCompliance  Int
+  certificationStatus   Int
+  auditHistory          Int
+  dataPrivacy           Int
+  complianceScore       Float?
+  
+  // Operational Assessment (weighted 20%)
+  serviceReliability    Int
+  supportQuality        Int
+  changeManagement      Int
+  documentationQuality  Int
+  operationalScore      Float?
+  
+  // Financial Assessment (weighted 15%)
+  financialStability    Int
+  insuranceCoverage     Int
+  contractTerms         Int
+  financialScore        Float?
+  
+  // AI-Specific Assessment (weighted 10%)
+  modelTransparency     Int
+  biasAssessment        Int
+  explainability        Int
+  humanOversight        Int
+  aiSpecificScore       Float?
+  
+  // Overall Results
+  overallScore          Float?   // Weighted total
+  riskLevel             String   // "Low", "Medium", "High", "Critical"
+  
+  // Findings & Actions
+  keyFindings           String[] @db.Text
+  strengths             String[] @db.Text
+  weaknesses            String[] @db.Text
+  recommendations       String[] @db.Text
+  remediationRequired   Boolean  @default(false)
+  remediationDeadline   DateTime?
+  
+  // Status
+  status                String   @default("Draft") // "Draft", "Under Review", "Approved", "Rejected"
+  approvedBy            String?
+  approvalDate          DateTime?
+  
+  // Metadata
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  @@map("vendor_risk_assessments")
+  @@index([vendorId])
+  @@index([assessmentDate])
+  @@index([riskLevel])
+}
+
+model VendorContractProfile {
+  id                    String   @id @default(cuid())
+  vendorId              String
+  vendor                VendorProfile @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  
+  contractNumber        String   @unique
+  contractTitle         String
+  contractType          String   // "Master Agreement", "SOW", "DPA", "SLA"
+  
+  // Contract Dates
+  effectiveDate         DateTime
+  expiryDate            DateTime
+  noticePeriod          Int      // Days
+  autoRenewal           Boolean  @default(false)
+  
+  // Financial Terms
+  contractValue         Float?
+  currency              String   @default("GBP")
+  paymentTerms          String?  // "Monthly", "Quarterly", "Annual", "Milestone-based"
+  
+  // Key Terms
+  serviceLevel          String?  @db.Text
+  dataProcessingTerms   String?  @db.Text
+  liabilityClause       String?  @db.Text
+  terminationClause     String?  @db.Text
+  
+  // Compliance
+  gdprClauses           Boolean  @default(false)
+  iso42001Requirements  Boolean  @default(false)
+  rightToAudit          Boolean  @default(false)
+  
+  // Document Management
+  contractDocument      String?  // File path/URL
+  signedBy              String?
+  signedDate            DateTime?
+  
+  // Status
+  status                String   @default("Draft") // "Draft", "Under Review", "Active", "Expired", "Terminated"
+  
+  // Metadata
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  @@map("vendor_contract_profiles")
+  @@index([vendorId])
+  @@index([expiryDate])
+  @@index([status])
+}
+
+model VendorPerformanceReview {
+  id                    String   @id @default(cuid())
+  vendorId              String
+  vendor                VendorProfile @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  
+  reviewPeriod          String   // "Q1 2024", "2023 Annual", etc.
+  reviewDate            DateTime @default(now())
+  reviewer              String
+  
+  // Performance Metrics
+  serviceQuality        Int      // 1-5
+  responsiveness        Int
+  reliability           Int
+  innovation            Int
+  costEffectiveness     Int
+  
+  // Compliance Performance
+  slaCompliance         Float    // Percentage
+  incidentCount         Int
+  resolutionTime        Float?   // Average hours
+  
+  // Overall Assessment
+  overallScore          Float?
+  performanceStatus     String   // "Exceeds", "Meets", "Below", "Unsatisfactory"
+  
+  // Feedback
+  positives             String[] @db.Text
+  concerns              String[] @db.Text
+  actionItems           String[] @db.Text
+  
+  // Decision
+  recommendation        String   // "Continue", "Renegotiate", "Probation", "Terminate"
+  
+  // Metadata
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  @@map("vendor_performance_reviews")
+  @@index([vendorId])
+  @@index([reviewDate])
+}
+
+model VendorIncident {
+  id                    String   @id @default(cuid())
+  vendorId              String
+  vendor                VendorProfile @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  
+  incidentDate          DateTime
+  incidentType          String   // "Security Breach", "Service Outage", "Data Loss", "SLA Breach", "Compliance Issue"
+  severity              String   // "Low", "Medium", "High", "Critical"
+  
+  description           String   @db.Text
+  impact                String   @db.Text
+  affectedSystems       String[]
+  
+  // Response
+  vendorResponse        String?  @db.Text
+  resolutionDate        DateTime?
+  resolutionTime        Float?   // Hours
+  rootCause             String?  @db.Text
+  correctiveActions     String[] @db.Text
+  
+  // Status
+  status                String   @default("Open") // "Open", "Investigating", "Resolved", "Closed"
+  
+  // Financial Impact
+  slaCredit             Float?
+  financialImpact       Float?
+  
+  // Metadata
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  reportedBy            String
+  
+  @@map("vendor_incidents")
+  @@index([vendorId])
+  @@index([incidentDate])
+  @@index([severity])
+  @@index([status])
 }
 
 
