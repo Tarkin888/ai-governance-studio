@@ -6,8 +6,8 @@ import { notFound } from 'next/link';
 import Link from 'next/link';
 import { ChevronLeft, ExternalLink, Calendar, Eye } from 'lucide-react';
 import { prisma } from '@/lib/prisma';
-import { IncidentTypeBadge } from '@/app/_components/incidents/badges';
-import { KBFeedbackButtons } from '@/components/kb-feedback-buttons';
+import { IncidentTypeBadge } from '@/components/incidents/badges'
+  import { KBFeedbackButtons } from '@/components/incidents/kb-feedback-buttons';
 import { formatRelativeTime } from '@/lib/module-7-utils';
 
 // ============================================================================
