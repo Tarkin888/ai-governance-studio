@@ -1,124 +1,191 @@
-'use client'
+'use client';
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { Vendor, VendorStatus, RiskTier } from '@/lib/types'
+import { useState, useEffect } from 'react';
+import { VendorList } from '@/src/components/vendors/VendorList';
+import { VendorDashboardStats } from '@/types/vendor';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Building2,
+  CheckCircle,
+  AlertTriangle,
+  Clock,
+  FileText,
+  TrendingUp,
+  Shield,
+} from 'lucide-react';
 
 export default function VendorsPage() {
-  const router = useRouter()
-  const [vendors, setVendors] = useState<Vendor[]>([])
-  const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<{ status?: VendorStatus; riskTier?: RiskTier }>({})
+  const [stats, setStats] = useState<VendorDashboardStats | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchVendors()
-  }, [filter])
+    fetchDashboardStats();
+  }, []);
 
-  const fetchVendors = async () => {
+  const fetchDashboardStats = async () => {
     try {
-      const params = new URLSearchParams()
-      if (filter.status) params.append('status', filter.status)
-      if (filter.riskTier) params.append('riskTier', filter.riskTier)
+      const response = await fetch('/api/vendors/stats');
       
-      const response = await fetch(`/api/vendors?${params}`)
-      const data = await response.json()
-      setVendors(data)
+      if (!response.ok) {
+        throw new Error('Failed to fetch dashboard statistics');
+      }
+      
+      const data = await response.json();
+      setStats(data);
     } catch (error) {
-      console.error('Error fetching vendors:', error)
+      console.error('Error fetching stats:', error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
   }
 
-  if (loading) return <div className="p-8">Loading vendors...</div>
-
   return (
-    <div className="container mx-auto p-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Third-Party Vendors</h1>
-        <button
-          onClick={() => router.push('/vendors/new')}
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-        >
-          Add Vendor
-        </button>
+    <div className="p-6 space-y-6">
+      {/* Page Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Vendor Management</h1>
+          <p className="text-gray-600 mt-1">
+            Manage third-party AI vendors and monitor risk across your supply chain
+          </p>
+        </div>
       </div>
 
-      <div className="mb-6 flex gap-4">
-        <select
-          value={filter.status || ''}
-          onChange={(e) => setFilter({ ...filter, status: e.target.value as VendorStatus })}
-          className="border rounded px-3 py-2"
-        >
-          <option value="">All Statuses</option>
-          <option value="ACTIVE">Active</option>
-          <option value="INACTIVE">Inactive</option>
-          <option value="PENDING_REVIEW">Pending Review</option>
-          <option value="TERMINATED">Terminated</option>
-        </select>
+      {/* Key Metrics */}
+      {stats && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">
+                Total Vendors
+              </CardTitle>
+              <Building2 className="h-4 w-4 text-blue-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-gray-900">{stats.totalVendors}</div>
+              <p className="text-xs text-gray-500 mt-1">
+                {stats.activeVendors} active
+              </p>
+            </CardContent>
+          </Card>
 
-        <select
-          value={filter.riskTier || ''}
-          onChange={(e) => setFilter({ ...filter, riskTier: e.target.value as RiskTier })}
-          className="border rounded px-3 py-2"
-        >
-          <option value="">All Risk Tiers</option>
-          <option value="CRITICAL">Critical</option>
-          <option value="HIGH">High</option>
-          <option value="MEDIUM">Medium</option>
-          <option value="LOW">Low</option>
-        </select>
-      </div>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">
+                High Risk Vendors
+              </CardTitle>
+              <AlertTriangle className="h-4 w-4 text-red-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-600">{stats.highRiskVendors}</div>
+              <p className="text-xs text-gray-500 mt-1">
+                Require immediate attention
+              </p>
+            </CardContent>
+          </Card>
 
-      <div className="grid gap-4">
-        {vendors.map((vendor) => (
-          <div
-            key={vendor.id}
-            onClick={() => router.push(`/vendors/${vendor.id}`)}
-            className="border rounded-lg p-6 hover:shadow-lg cursor-pointer transition"
-          >
-            <div className="flex justify-between items-start">
-              <div>
-                <h2 className="text-xl font-semibold">{vendor.name}</h2>
-                <p className="text-gray-600 mt-1">{vendor.description}</p>
-                <div className="mt-2 flex gap-2">
-                  <span className={`px-2 py-1 rounded text-sm ${
-                    vendor.status === 'ACTIVE' ? 'bg-green-100 text-green-800' :
-                    vendor.status === 'INACTIVE' ? 'bg-gray-100 text-gray-800' :
-                    vendor.status === 'PENDING_REVIEW' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-red-100 text-red-800'
-                  }`}>
-                    {vendor.status}
-                  </span>
-                  <span className={`px-2 py-1 rounded text-sm ${
-                    vendor.current_risk_tier === 'CRITICAL' ? 'bg-red-100 text-red-800' :
-                    vendor.current_risk_tier === 'HIGH' ? 'bg-orange-100 text-orange-800' :
-                    vendor.current_risk_tier === 'MEDIUM' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-green-100 text-green-800'
-                  }`}>
-                    {vendor.current_risk_tier} Risk
-                  </span>
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-sm text-gray-500">Last Assessment</div>
-                <div className="font-medium">
-                  {vendor.last_assessment_date 
-                    ? new Date(vendor.last_assessment_date).toLocaleDateString()
-                    : 'Never'
-                  }
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">
+                Pending Assessments
+              </CardTitle>
+              <Clock className="h-4 w-4 text-yellow-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-yellow-600">{stats.pendingAssessments}</div>
+              <p className="text-xs text-gray-500 mt-1">
+                Awaiting risk evaluation
+              </p>
+            </CardContent>
+          </Card>
 
-      {vendors.length === 0 && (
-        <div className="text-center py-12 text-gray-500">
-          No vendors found. Click "Add Vendor" to get started.
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">
+                Expiring Contracts
+              </CardTitle>
+              <FileText className="h-4 w-4 text-orange-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-orange-600">{stats.expiringContracts}</div>
+              <p className="text-xs text-gray-500 mt-1">
+                Within next 90 days
+              </p>
+            </CardContent>
+          </Card>
         </div>
       )}
+
+      {/* Additional Metrics Row */}
+      {stats && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">
+                Average Risk Score
+              </CardTitle>
+              <TrendingUp className="h-4 w-4 text-blue-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-600">
+                {stats.averageRiskScore.toFixed(1)}
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                <div
+                  className="bg-blue-600 h-2 rounded-full"
+                  style={{ width: `${Math.min(stats.averageRiskScore, 100)}%` }}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">
+                Compliance Rate
+              </CardTitle>
+              <CheckCircle className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">
+                {stats.complianceRate.toFixed(0)}%
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                <div
+                  className="bg-green-600 h-2 rounded-full"
+                  style={{ width: `${Math.min(stats.complianceRate, 100)}%` }}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">
+                Recent Incidents
+              </CardTitle>
+              <Shield className="h-4 w-4 text-red-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-600">{stats.recentIncidents}</div>
+              <p className="text-xs text-gray-500 mt-1">
+                In last 30 days
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Vendor List */}
+      <VendorList />
     </div>
-  )
+  );
 }

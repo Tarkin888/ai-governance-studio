@@ -58,10 +58,17 @@ export function VendorList({ onSelectVendor }: VendorListProps) {
       if (typeFilter !== 'all') params.append('vendorType', typeFilter);
 
       const response = await fetch(`/api/vendors?${params}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch vendors');
+      }
+      
       const data = await response.json();
       setVendors(data);
     } catch (error) {
       console.error('Error fetching vendors:', error);
+      setVendors([]); // Set empty array on error to prevent runtime errors
     } finally {
       setLoading(false);
     }
