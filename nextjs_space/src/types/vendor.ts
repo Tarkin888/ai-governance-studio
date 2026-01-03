@@ -294,7 +294,7 @@ export function getStatusColor(status: ApprovalStatus | OnboardingStatus | Contr
     Approved: 'text-green-600 bg-green-50',
     Active: 'text-green-600 bg-green-50',
     Resolved: 'text-green-600 bg-green-50',
-    Closed: 'text-grey-600 bg-grey-50',
+    Closed: 'text-gray-600 bg-gray-50',
     
     Pending: 'text-yellow-600 bg-yellow-50',
     'In Progress': 'text-blue-600 bg-blue-50',
@@ -309,6 +309,7 @@ export function getStatusColor(status: ApprovalStatus | OnboardingStatus | Contr
     Terminated: 'text-red-600 bg-red-50',
     Expired: 'text-red-600 bg-red-50',
   };
-  return colors[status] || 'text-grey-600 bg-grey-50';
+  return colors[status] || 'text-gray-600 bg-gray-50';
 }
+
 
