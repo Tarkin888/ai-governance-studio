@@ -34,12 +34,12 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, active: false, comingSoon: true },
-  { name: 'AI System Inventory', href: '/', icon: Database, active: true },
+  { name: 'AI System Inventory', href: '/ai-systems', icon: Database, active: true },
   { name: 'Regulatory Compliance', href: '/regulatory-compliance', icon: FileCheck, active: true },
   { name: 'Risk Assessment', href: '/risk', icon: Shield, active: false, comingSoon: true },
   { name: 'Bias & Fairness Testing', href: '/bias-fairness', icon: Scale, active: true },
   { name: 'Model Card Library', href: '/model-cards', icon: FileText, active: true },
-  { name: 'Vendor Management', href: '/vendors', icon: Building2, active: false, comingSoon: true },
+  { name: 'Vendor Management', href: '/vendors', icon: Building2, active: true },
   { name: 'Incident Management', href: '/incidents', icon: AlertTriangle, active: false, comingSoon: true },
   { name: 'Ethics Committee', href: '/ethics', icon: Users, active: false, comingSoon: true },
   { name: 'Procurement', href: '/procurement', icon: ShoppingCart, active: false, comingSoon: true },

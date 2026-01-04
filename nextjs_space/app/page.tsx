@@ -1,13 +1,5 @@
-import { Sidebar } from './_components/sidebar'
-import { InventoryPageClient } from './_components/inventory-page-client'
+import { redirect } from 'next/navigation'
 
-export default function InventoryPage() {
-  return (
-    <div className="flex min-h-screen bg-gray-50">
-      <Sidebar />
-      <main className="flex-1">
-        <InventoryPageClient />
-      </main>
-    </div>
-  )
+export default function HomePage() {
+  redirect('/ai-systems')
 }
